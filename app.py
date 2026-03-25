@@ -1,24 +1,12 @@
+import time
 import uuid
 import streamlit as st
 from google.cloud import dialogflow_v2 as dialogflow
-import json
-import os
 
-
-# Load JSON key from Streamlit secrets
-service_account_info = json.loads(st.secrets["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
-
-# Write it to a temporary file
-with open("key.json", "w") as f:
-    json.dump(service_account_info, f)
-
-# Point Dialogflow to this file
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "key.json"
 
 # ------------------------------------------------------------
 # Page configuration
 # ------------------------------------------------------------
-
 st.set_page_config(
     page_title="NARQ Chatbot",
     page_icon="🧠",
@@ -38,68 +26,50 @@ st.info(
 # ------------------------------------------------------------
 # Dialogflow configuration
 # ------------------------------------------------------------
-
-# Replace this with your actual Google Cloud project ID
 PROJECT_ID = "narq-chatbot-lttf"
 
-# Dialogflow needs a session ID to keep conversation context.
-# We create one unique ID per Streamlit session.
+
+# ------------------------------------------------------------
+# Cache the Dialogflow client so it is created only once
+# ------------------------------------------------------------
+@st.cache_resource
+def get_dialogflow_client():
+    return dialogflow.SessionsClient()
+
+
+# ------------------------------------------------------------
+# Session state
+# ------------------------------------------------------------
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-
-# ------------------------------------------------------------
-# Function to send user text to Dialogflow ES
-# ------------------------------------------------------------
-
-def detect_intent_text(project_id: str, session_id: str, text: str, language_code: str = "en") -> str:
-    """
-    Send a text query to Dialogflow ES and return the chatbot response.
-    
-    Parameters:
-        project_id (str): Google Cloud project ID
-        session_id (str): Unique session ID for the conversation
-        text (str): User input text
-        language_code (str): Language of the query
-        
-    Returns:
-        str: Fulfillment text returned by Dialogflow
-    """
-
-    # Create a session client
-    session_client = dialogflow.SessionsClient()
-
-    # Build the session path
-    session = session_client.session_path(project_id, session_id)
-
-    # Convert user text into Dialogflow text input format
-    text_input = dialogflow.TextInput(text=text, language_code=language_code)
-
-    # Wrap text input in a QueryInput object
-    query_input = dialogflow.QueryInput(text=text_input)
-
-    # Send request to Dialogflow
-    response = session_client.detect_intent(
-        request={"session": session, "query_input": query_input}
-    )
-
-    # Return the text response from Dialogflow
-    return response.query_result.fulfillment_text
-
-
-# ------------------------------------------------------------
-# Chat history state
-# ------------------------------------------------------------
-
-# Store conversation messages in Streamlit session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 
 # ------------------------------------------------------------
-# Display existing chat history
+# Function to send text to Dialogflow ES
 # ------------------------------------------------------------
+def detect_intent_text(project_id: str, session_id: str, text: str, language_code: str = "en") -> str:
+    session_client = get_dialogflow_client()
+    session = session_client.session_path(project_id, session_id)
 
+    text_input = dialogflow.TextInput(text=text, language_code=language_code)
+    query_input = dialogflow.QueryInput(text=text_input)
+
+    response = session_client.detect_intent(
+        request={
+            "session": session,
+            "query_input": query_input
+        }
+    )
+
+    return response.query_result.fulfillment_text
+
+
+# ------------------------------------------------------------
+# Display chat history
+# ------------------------------------------------------------
 st.subheader("Chat Interface")
 
 for message in st.session_state.messages:
@@ -108,43 +78,51 @@ for message in st.session_state.messages:
 
 
 # ------------------------------------------------------------
-# Chat input box
+# Chat input
 # ------------------------------------------------------------
-
 user_input = st.chat_input("Describe the patient's symptoms or ask a question...")
 
 if user_input:
-    # Save and show user message
+    # Show user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    try:
-        # Get response from Dialogflow
-        bot_reply = detect_intent_text(
-            project_id=PROJECT_ID,
-            session_id=st.session_state.session_id,
-            text=user_input,
-            language_code="en"
-        )
-
-        # Fallback if Dialogflow returns empty response
-        if not bot_reply:
-            bot_reply = "I understood your message, but I do not have a response configured yet."
-
-    except Exception as e:
-        bot_reply = f"Error connecting to Dialogflow: {e}"
-
-    # Save and show bot response
-    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+    # Show assistant response with spinner
     with st.chat_message("assistant"):
-        st.markdown(bot_reply)
+        with st.spinner("Thinking..."):
+            try:
+                start_time = time.time()
+
+                bot_reply = detect_intent_text(
+                    project_id=PROJECT_ID,
+                    session_id=st.session_state.session_id,
+                    text=user_input,
+                    language_code="en"
+                )
+
+                elapsed = time.time() - start_time
+
+                if not bot_reply:
+                    bot_reply = "I understood your message, but I do not have a response configured yet."
+
+            except Exception as e:
+                bot_reply = f"Error connecting to Dialogflow: {e}"
+                elapsed = None
+
+            st.markdown(bot_reply)
+
+            # Optional: show response time for debugging
+            # if elapsed is not None:
+            #     st.caption(f"Response time: {elapsed:.2f} seconds")
+
+    # Save bot response
+    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
 
 
 # ------------------------------------------------------------
 # Example questions
 # ------------------------------------------------------------
-
 st.subheader("Example questions")
 st.markdown("""
 - What symptoms are most typical of Parkinson’s disease?
