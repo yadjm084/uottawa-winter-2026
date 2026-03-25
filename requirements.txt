@@ -1,3 +1,4 @@
 streamlit
 google-cloud-dialogflow
 google-auth
+google-cloud-dialogflow-v2

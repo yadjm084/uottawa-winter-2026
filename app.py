@@ -1,7 +1,19 @@
 import uuid
 import streamlit as st
 from google.cloud import dialogflow_v2 as dialogflow
+import json
+import os
 
+
+# Load JSON key from Streamlit secrets
+service_account_info = json.loads(st.secrets["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
+
+# Write it to a temporary file
+with open("key.json", "w") as f:
+    json.dump(service_account_info, f)
+
+# Point Dialogflow to this file
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "key.json"
 
 # ------------------------------------------------------------
 # Page configuration
