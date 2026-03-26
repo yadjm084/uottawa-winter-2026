@@ -5,12 +5,12 @@ from google.cloud import dialogflow_v2 as dialogflow
 from google.oauth2 import service_account
 
 st.set_page_config(
-    page_title="NARQ Chatbot",
+    page_title="Neurodegenerative Diseases Q&A Chatbot",
     page_icon="🧠",
     layout="centered"
 )
 
-st.title("🧠 NARQ Diagnostic Support Chatbot")
+st.title("🧠 Neurodegenerative Diseases Q&A Chatbot")
 st.write(
     "This chatbot helps explore symptom patterns related to Alzheimer’s disease, ALS, and Parkinson’s disease."
 )
