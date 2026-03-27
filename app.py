@@ -98,8 +98,9 @@ if user_input:
 
 st.subheader("Example questions")
 st.markdown("""
-- What symptoms are most typical of Parkinson’s disease?
+- Similarity between Parkinson's and Alzheimer's?
 - Which symptoms overlap between ALS and Parkinson’s?
+- What can I do to reduce risk of Alzheimer's?
 - Is memory impairment more typical of Alzheimer’s disease?
-- Which symptoms are motor symptoms?
+- What does sleep disorder, obesity, and chronic stress indicate?
 """)
