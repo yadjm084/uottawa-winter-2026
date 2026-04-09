@@ -1,0 +1,5 @@
+streamlit
+google-cloud-dialogflow
+google-auth
+google-api-core
+grpcio
